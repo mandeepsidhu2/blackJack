@@ -106,7 +106,6 @@ class BlackJackGame:
 	def findGameWinners(self):
 
 		dealerCardSum = self.getSumOfCards(self.playerVsHands[0])
-		print("**",dealerCardSum)
 		dealerCardSum = self.getOptimalSum(dealerCardSum)
 		ans = []
 		for i in range(1,self.numPlayers+1):
@@ -161,24 +160,19 @@ class BlackJackGame:
 
 
 
+numPlayers = 4
+numGames = 2
+game = BlackJackGame(numPlayers,numGames)
 
-game = BlackJackGame(4,2)
-print(game.playerVsHands)
-print(game.getNumberOfCardsLeftInShoe())
-print(game.getDealerTopCard())
-print(game.getLegalMoves())
+for i in range(0,(numPlayers+1)*numGames):
+	if bool(random.getrandbits(1)):
+		move = 'Hit'
+	else:
+		move = 'Stand'
+	game.makeMove(move)
+	print(game.playerVsHands,'\n')
 
-game.makeMove('Hit')
-print(game.playerVsHands,'\n')
-game.makeMove('Hit')
-print(game.playerVsHands,'\n')
-game.makeMove('Hit')
-print(game.playerVsHands,'\n')
-game.makeMove('Hit')
-print(game.playerVsHands,'\n')
-game.makeMove('Hit')
-print(game.playerVsHands,'\n')
-game.makeMove('Hit')
+
 
 #print(game.playerVsHands,'\n')
 
