@@ -33,6 +33,14 @@ class BlackJackGame:
         random.shuffle(self.shoe)
         self.startRound()
 
+    def playGame(self):
+        print("Initial game state:")
+
+        while self.currentGameRound <= self.numGameRounds:
+            print(self.playerVsHands, '\n')
+            move = self.getMove(game)
+            self.makeMove(move)
+
     def getCard(self):
         card = self.shoe[self.currShoeIdx]
         self.currShoeIdx += 1
@@ -94,7 +102,7 @@ class BlackJackGame:
     def getOptimalSum(self, cardSumTuple):
         cardOptimalSum = 0
         if cardSumTuple[0] > 21 and cardSumTuple[1] > 21:
-            return 0
+            return min(cardSumTuple)
         elif cardSumTuple[0] > cardSumTuple[1]:
             if cardSumTuple[0] <= 21:
                 cardOptimalSum = cardSumTuple[0]
@@ -129,6 +137,7 @@ class BlackJackGame:
             else:
                 ans.append('Tied')
             print("Player ", i, ans[i - 1], playerCardSum, "vs", dealerCardSum)
+        print(self.playerVsHands, '\n')
         return ans
 
     def getGamePlayingHistory(self):
@@ -143,11 +152,13 @@ class BlackJackGame:
                 self.playerVsHands[0].append(card)
                 agentCardsSum = self.getSumOfCards(self.playerVsHands[0])
             self.gamePlayingHistory[self.currentGameRound] = self.findGameWinners()
-            print(game.playerVsHands, '\n')
+
             self.startRound()
             self.currentGameRound += 1
+            self.playIdx = 1
+            print("************************ This round is over ************************")
             if self.currentGameRound > self.numGameRounds:
-                print("Game ends !")
+                print("************************     GAME OVER      ************************")
 
         # if the player is moving 'Stand', do nothing and if he hits just add the card,
         # whether he loses or wins is implicit after the dealer makes the move
@@ -193,7 +204,7 @@ class BlackJackGame:
         return expectedValue + min(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
 
     def evaluationFunction(self, gameState):
-        sum = min(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
+        sum = max(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
         if sum > 21:
             return 0
         return sum
@@ -202,18 +213,5 @@ class BlackJackGame:
 numPlayers = 4
 numGames = 2
 game = BlackJackGame(numPlayers, numGames)
-print("Initial game state:")
-print(game.playerVsHands, '\n')
+game.playGame()
 
-for i in range(0, (numPlayers + 1) * numGames):
-    while True:
-        move = game.getMove(game)
-        game.makeMove(move)
-        if move == "Stand":
-            break
-
-    print(game.playerVsHands, '\n')
-
-# print(game.playerVsHands,'\n')
-
-print(game.getGamePlayingHistory())
