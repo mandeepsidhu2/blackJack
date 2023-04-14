@@ -33,6 +33,14 @@ class BlackJackGame:
         random.shuffle(self.shoe)
         self.startRound()
 
+    def playGame(self):
+        print("Initial game state:")
+
+        while self.currentGameRound <= self.numGameRounds:
+            print(self.playerVsHands, '\n')
+            move = self.getMove(game)
+            self.makeMove(move)
+
     def getCard(self):
         card = self.shoe[self.currShoeIdx]
         self.currShoeIdx += 1
@@ -129,6 +137,7 @@ class BlackJackGame:
             else:
                 ans.append('Tied')
             print("Player ", i, ans[i - 1], playerCardSum, "vs", dealerCardSum)
+        print(self.playerVsHands, '\n')
         return ans
 
     def getGamePlayingHistory(self):
@@ -147,9 +156,9 @@ class BlackJackGame:
             self.startRound()
             self.currentGameRound += 1
             self.playIdx = 1
-            print("************************ This game is over ************************")
+            print("************************ This round is over ************************")
             if self.currentGameRound > self.numGameRounds:
-                print("Game ends !")
+                print("************************     GAME OVER      ************************")
 
         # if the player is moving 'Stand', do nothing and if he hits just add the card,
         # whether he loses or wins is implicit after the dealer makes the move
@@ -201,16 +210,8 @@ class BlackJackGame:
         return sum
 
 
-def playGame(game):
-    print("Initial game state:")
-
-    while game.currentGameRound <= game.numGameRounds:
-        print(game.playerVsHands, '\n')
-        move = game.getMove(game)
-        game.makeMove(move)
-
 numPlayers = 4
 numGames = 2
 game = BlackJackGame(numPlayers, numGames)
-playGame(game)
+game.playGame()
 
