@@ -94,7 +94,7 @@ class BlackJackGame:
     def getOptimalSum(self, cardSumTuple):
         cardOptimalSum = 0
         if cardSumTuple[0] > 21 and cardSumTuple[1] > 21:
-            return 0
+            return min(cardSumTuple)
         elif cardSumTuple[0] > cardSumTuple[1]:
             if cardSumTuple[0] <= 21:
                 cardOptimalSum = cardSumTuple[0]
@@ -143,9 +143,11 @@ class BlackJackGame:
                 self.playerVsHands[0].append(card)
                 agentCardsSum = self.getSumOfCards(self.playerVsHands[0])
             self.gamePlayingHistory[self.currentGameRound] = self.findGameWinners()
-            print(game.playerVsHands, '\n')
+
             self.startRound()
             self.currentGameRound += 1
+            self.playIdx = 1
+            print("************************ This game is over ************************")
             if self.currentGameRound > self.numGameRounds:
                 print("Game ends !")
 
@@ -193,27 +195,22 @@ class BlackJackGame:
         return expectedValue + min(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
 
     def evaluationFunction(self, gameState):
-        sum = min(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
+        sum = max(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
         if sum > 21:
             return 0
         return sum
 
 
+def playGame(game):
+    print("Initial game state:")
+
+    while game.currentGameRound <= game.numGameRounds:
+        print(game.playerVsHands, '\n')
+        move = game.getMove(game)
+        game.makeMove(move)
+
 numPlayers = 4
 numGames = 2
 game = BlackJackGame(numPlayers, numGames)
-print("Initial game state:")
-print(game.playerVsHands, '\n')
+playGame(game)
 
-for i in range(0, (numPlayers + 1) * numGames):
-    while True:
-        move = game.getMove(game)
-        game.makeMove(move)
-        if move == "Stand":
-            break
-
-    print(game.playerVsHands, '\n')
-
-# print(game.playerVsHands,'\n')
-
-print(game.getGamePlayingHistory())
