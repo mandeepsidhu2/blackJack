@@ -1,5 +1,6 @@
 import random
 import math
+import copy
 from enum import Enum
 
 cardArr = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K',
@@ -76,11 +77,13 @@ class BlackJackGame:
     def getNumberOfCardsLeftInShoe(self):
         return len(self.shoe) - self.currShoeIdx + 1
 
+    def getDealerVisibleCards(self):
+        dealerHand = self.playerVsHands[0]
+        return dealerHand[1:]
+
     def getDealerTopCard(self):
         dealerHand = self.playerVsHands[0]
-        # dealer will have only 1 hand (he cannot split)
-        cardArr = dealerHand[0]
-        return cardArr[-1]
+        return dealerHand[-1]
 
     def getCurrentTurn(self):
         return self.playIdx
@@ -176,6 +179,12 @@ class BlackJackGame:
         state.playerVsHands[state.playIdx].append(card)
         return state
 
+    def generateDealerSuccessor(self, card):
+        state = BlackJackGame(self.numPlayers, self.numGameRounds)
+        state.playerVsHands[0] = copy.copy(self.playerVsHands[0])
+        state.playerVsHands[0].append(card)
+        return state
+
     def getMove(self, gameState):
         print("The current player is ", self.playIdx)
         print("My current hand is", gameState.playerVsHands[gameState.playIdx])
@@ -186,11 +195,18 @@ class BlackJackGame:
     def expectimax(self, gameState):
         hit = math.floor(self.expValue(gameState))
         stand = self.getOptimalSum(self.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
-        print("Hit:", hit, "stand:", stand)
+        dealer = math.floor(self.dealerExpValue(gameState, 0))
+        print("Hit:", hit, "stand:", stand, "dealer:", dealer)
         value = self.getOptimalSum((hit, stand))
         if value == hit:
+            print("HIT: Hit has better expected value than Stand")
             return "Hit"
-        return "Stand"
+        elif stand < dealer and self.getSumOfCards(self.getDealerTopCard()):
+            print("HIT: Stand is better than Hit, but Dealer's expected value is better than my Stand.")
+            return "Hit"
+        else:
+            print("STAND: Stand is better than Hit and Dealer")
+            return "Stand"
 
     def expValue(self, gameState):
         expectedValue = 0
@@ -202,6 +218,18 @@ class BlackJackGame:
             # expectimax calculation
             expectedValue += probability * nextValue
         return expectedValue + min(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
+    def dealerExpValue(self, gameState, depth):
+        dealerCardSum = self.getSumOfCards(gameState.getDealerVisibleCards())
+        dealerCardSum = self.getOptimalSum(dealerCardSum)
+        if dealerCardSum >= 17:
+            return dealerCardSum
+        cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+        expectedValue = 0
+        for card in cards:
+            successorGameState = gameState.generateDealerSuccessor(card)
+            expectedValue += self.dealerExpValue(successorGameState, depth+1) * 1./13.
+
+        return expectedValue
 
     def evaluationFunction(self, gameState):
         sum = max(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
