@@ -221,13 +221,11 @@ class BlackJackGame:
     def dealerExpValue(self, gameState, depth):
         dealerCardSum = self.getSumOfCards(gameState.getDealerVisibleCards())
         dealerCardSum = self.getOptimalSum(dealerCardSum)
-        # print("depth", depth, ":", gameState.getDealerVisibleCards(), "sum:", dealerCardSum)
         if dealerCardSum >= 17:
             return dealerCardSum
         cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
         expectedValue = 0
         for card in cards:
-            # print("gameState", gameState.playerVsHands[0])
             successorGameState = gameState.generateDealerSuccessor(card)
             expectedValue += self.dealerExpValue(successorGameState, depth+1) * 1./13.
 
