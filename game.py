@@ -233,21 +233,6 @@ class BlackJackGame:
 
         return expectedValue
 
-
-    # def dealerExpValue(self, gameState):
-    #     sum = sum(gameState.playerVsHands[0])
-    #     cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
-    #     for card in cards:
-    #         probability = 1. / 13.
-    #         if sum < 17:
-    #             successorGameState = gameState.generateSuccessor(card)
-    #             nextValue = self.dealerExpValue(successorGameState)
-    #             # expectimax calculation
-    #             expectedValue += probability * nextValue
-    #         else:
-    #             return probability *
-    #     return expectedValue + min(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
-
     def evaluationFunction(self, gameState):
         sum = max(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
         if sum > 21:
