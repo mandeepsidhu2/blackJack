@@ -28,6 +28,7 @@ class BlackJackGame:
         self.numGameRounds = numGameRounds
         self.gamePlayingHistory = {}
         self.winsVsLosses = [0,0]
+        self.handVsMove = {}
         # 0 means player 1, when playIdx is numPlayers it means the dealerr
         # because he plays the last
         self.playerVsHands = None
@@ -170,7 +171,10 @@ class BlackJackGame:
             print("************************ This round is over ************************")
             if self.currentGameRound > self.numGameRounds:
                 print("Win percentage is",100.*self.winsVsLosses[0]/(self.winsVsLosses[0]+self.winsVsLosses[1]))
-                print("************************     GAME OVER      ************************")
+                print("Actions history is: \n Format: our hands vs deal up card : [nummber of hits, number of stands]")
+               	for key in self.handVsMove:
+                	print(key,"  |   " ,self.handVsMove[key],"\n")
+                print("***********************     GAME OVER      ************************")
 
         # if the player is moving 'Stand', do nothing and if he hits just add the card,
         # whether he loses or wins is implicit after the dealer makes the move
@@ -199,6 +203,21 @@ class BlackJackGame:
         print("The current player is ", self.playIdx)
         print("My current hand is", gameState.playerVsHands[gameState.playIdx])
         action = self.expectimax(gameState)
+        # TODO
+        possibleSums =  self.getSumOfCards(gameState.playerVsHands[gameState.playIdx])
+        dealerUpCard = gameState.playerVsHands[0][1]
+        if 'A' in gameState.playerVsHands[gameState.playIdx]:
+        	key="A "+str(possibleSums[0]-1) +"  VS  "+str(dealerUpCard)
+        else:
+        	key=str(possibleSums[0])+"  VS  "+str(dealerUpCard)
+
+        if key not in self.handVsMove:
+        	self.handVsMove[key]=[0,0]
+        	if action=='Hit':
+        		self.handVsMove[key][0]=self.handVsMove[key][0]+1
+        	else:
+        		self.handVsMove[key][1]=self.handVsMove[key][1]+1
+
         print("Chose move", action,"\n")
         return action
 
@@ -212,7 +231,8 @@ class BlackJackGame:
         		availableCardFreqMap[card]=1
 
         hit = math.floor(self.expValue(gameState,availableCardFreqMap))
-        stand = self.getOptimalSum(self.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
+        sumOfPlayerCards = self.getSumOfCards(gameState.playerVsHands[gameState.playIdx])
+        stand = self.getOptimalSum(sumOfPlayerCards)
  
         #print(availableCardFreqMap)
         #print(len(currAvailableCards))
@@ -223,7 +243,10 @@ class BlackJackGame:
         if value == hit :
             print("HIT: Hit has better expected value than Stand")
             return "Hit"
-        elif stand < dealer and stand < 17:
+        elif 'A' in gameState.playerVsHands[gameState.playIdx] and (sumOfPlayerCards[0]<=17 and sumOfPlayerCards[1]<=17):
+            print("HIT: Hit has better expected value in this soft combination")
+            return "Hit"
+        elif stand < dealer and stand < 17 and 'A' not in gameState.playerVsHands[gameState.playIdx]:
             print("HIT: Stand is better than Hit, but Dealer's expected value is better than my Stand.")
             return "Hit"
         else:
@@ -277,7 +300,7 @@ class BlackJackGame:
 
 
 numPlayers = 4
-numGames = 2
+numGames = 5
 game = BlackJackGame(numPlayers, numGames)
 game.playGame()
 
