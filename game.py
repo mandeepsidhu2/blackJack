@@ -18,7 +18,8 @@ class BlackJackGame:
 
     def __init__(self, numPlayers, numGameRounds):
         self.numPlayers = numPlayers
-        self.numDecks = math.ceil(numGameRounds * 5 * float(numPlayers + 1) / numGameRounds)
+        self.numDecks = math.ceil(numGameRounds * 5 * float(numPlayers + 1) / 52)
+        #print("numDecks",self.numDecks)
         self.shoe = []
         self.currShoeIdx = 0
         self.playIdx = 1
@@ -26,6 +27,8 @@ class BlackJackGame:
         self.currentGameRound = 1
         self.numGameRounds = numGameRounds
         self.gamePlayingHistory = {}
+        self.winsVsLosses = [0,0]
+        self.handVsMove = {}
         # 0 means player 1, when playIdx is numPlayers it means the dealerr
         # because he plays the last
         self.playerVsHands = None
@@ -126,17 +129,23 @@ class BlackJackGame:
         for i in range(1, self.numPlayers + 1):
             playerCardSum = self.getSumOfCards(self.playerVsHands[i])
             playerCardSum = self.getOptimalSum(playerCardSum)
-            if playerCardSum > dealerCardSum:
+            if playerCardSum > 21 and dealerCardSum>21:
+                ans.append('Tied')
+            elif playerCardSum > dealerCardSum:
                 if playerCardSum <= 21:
                     ans.append('Win')
+                    self.winsVsLosses[0]=self.winsVsLosses[0]+1
                 else:
                     ans.append('Lost')
+                    self.winsVsLosses[1]=self.winsVsLosses[1]+1
 
             elif playerCardSum < dealerCardSum:
                 if dealerCardSum <= 21:
                     ans.append('Lost')
+                    self.winsVsLosses[1]=self.winsVsLosses[1]+1
                 else:
                     ans.append('Win')
+                    self.winsVsLosses[0]=self.winsVsLosses[0]+1
             else:
                 ans.append('Tied')
             print("Player ", i, ans[i - 1], playerCardSum, "vs", dealerCardSum)
@@ -161,7 +170,11 @@ class BlackJackGame:
             self.playIdx = 1
             print("************************ This round is over ************************")
             if self.currentGameRound > self.numGameRounds:
-                print("************************     GAME OVER      ************************")
+                print("Win percentage is",100.*self.winsVsLosses[0]/(self.winsVsLosses[0]+self.winsVsLosses[1]))
+                print("Actions history is: \n Format: our hands vs deal up card : [nummber of hits, number of stands]")
+               	for key in self.handVsMove:
+                	print(key,"  |   " ,self.handVsMove[key],"\n")
+                print("***********************     GAME OVER      ************************")
 
         # if the player is moving 'Stand', do nothing and if he hits just add the card,
         # whether he loses or wins is implicit after the dealer makes the move
@@ -183,51 +196,99 @@ class BlackJackGame:
         state = BlackJackGame(self.numPlayers, self.numGameRounds)
         state.playerVsHands[0] = copy.copy(self.playerVsHands[0])
         state.playerVsHands[0].append(card)
+        #state.currShoeIdx = self.currShoeIdx
         return state
 
     def getMove(self, gameState):
         print("The current player is ", self.playIdx)
         print("My current hand is", gameState.playerVsHands[gameState.playIdx])
         action = self.expectimax(gameState)
+        # TODO
+        possibleSums =  self.getSumOfCards(gameState.playerVsHands[gameState.playIdx])
+        dealerUpCard = gameState.playerVsHands[0][1]
+        if 'A' in gameState.playerVsHands[gameState.playIdx]:
+        	key="A "+str(possibleSums[0]-1) +"  VS  "+str(dealerUpCard)
+        else:
+        	key=str(possibleSums[0])+"  VS  "+str(dealerUpCard)
+
+        if key not in self.handVsMove:
+        	self.handVsMove[key]=[0,0]
+        	if action=='Hit':
+        		self.handVsMove[key][0]=self.handVsMove[key][0]+1
+        	else:
+        		self.handVsMove[key][1]=self.handVsMove[key][1]+1
+
         print("Chose move", action,"\n")
         return action
 
     def expectimax(self, gameState):
-        hit = math.floor(self.expValue(gameState))
-        stand = self.getOptimalSum(self.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
-        dealer = math.floor(self.dealerExpValue(gameState, 0))
+        currAvailableCards = self.shoe[self.currShoeIdx:]
+        availableCardFreqMap = {}
+        for card in currAvailableCards:
+        	if card in availableCardFreqMap:
+        		availableCardFreqMap[card]=availableCardFreqMap[card]+1
+        	else:
+        		availableCardFreqMap[card]=1
+
+        hit = math.floor(self.expValue(gameState,availableCardFreqMap))
+        sumOfPlayerCards = self.getSumOfCards(gameState.playerVsHands[gameState.playIdx])
+        stand = self.getOptimalSum(sumOfPlayerCards)
+ 
+        #print(availableCardFreqMap)
+        #print(len(currAvailableCards))
+
+        dealer = math.floor(self.dealerExpValue(gameState, 0,availableCardFreqMap))
         print("Hit:", hit, "stand:", stand, "dealer:", dealer)
         value = self.getOptimalSum((hit, stand))
-        if value == hit:
+        if value == hit :
             print("HIT: Hit has better expected value than Stand")
             return "Hit"
-        elif stand < dealer and self.getSumOfCards(self.getDealerTopCard()):
+        elif 'A' in gameState.playerVsHands[gameState.playIdx] and (sumOfPlayerCards[0]<=17 and sumOfPlayerCards[1]<=17):
+            print("HIT: Hit has better expected value in this soft combination")
+            return "Hit"
+        elif stand < dealer and stand < 17 and 'A' not in gameState.playerVsHands[gameState.playIdx]:
             print("HIT: Stand is better than Hit, but Dealer's expected value is better than my Stand.")
             return "Hit"
         else:
             print("STAND: Stand is better than Hit and Dealer")
             return "Stand"
 
-    def expValue(self, gameState):
+    def expValue(self, gameState,availableCardFreqMap):
         expectedValue = 0
-        cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
-        for card in cards:
+        #cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+        totalSum=0
+        for cardKey in availableCardFreqMap:
+            totalSum+=availableCardFreqMap[cardKey]
+        for card in availableCardFreqMap:
             successorGameState = gameState.generateSuccessor(card)
-            probability = 1./13.
+            probability = 1.*availableCardFreqMap[card]/totalSum
             nextValue = self.evaluationFunction(successorGameState)
             # expectimax calculation
             expectedValue += probability * nextValue
         return expectedValue + min(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
-    def dealerExpValue(self, gameState, depth):
+
+    def dealerExpValue(self, gameState, depth,availableCardFreqMap):
         dealerCardSum = self.getSumOfCards(gameState.getDealerVisibleCards())
         dealerCardSum = self.getOptimalSum(dealerCardSum)
+        if dealerCardSum > 21:
+        	return -1
         if dealerCardSum >= 17:
             return dealerCardSum
-        cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+        #cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
         expectedValue = 0
-        for card in cards:
-            successorGameState = gameState.generateDealerSuccessor(card)
-            expectedValue += self.dealerExpValue(successorGameState, depth+1) * 1./13.
+        totalSum=0
+        for cardKey in availableCardFreqMap:
+        	totalSum+=availableCardFreqMap[cardKey]
+
+        for cardKey in availableCardFreqMap:
+        	newAvailableCardFreqMap = copy.copy(availableCardFreqMap)
+        	newAvailableCardFreqMap[cardKey]=newAvailableCardFreqMap[cardKey]-1
+        	if newAvailableCardFreqMap[cardKey] == 0:
+        		newAvailableCardFreqMap.pop(cardKey)
+
+        	successorGameState = gameState.generateDealerSuccessor(cardKey)
+        	prob = 1.0*availableCardFreqMap[cardKey]/totalSum
+        	expectedValue += self.dealerExpValue(successorGameState, depth+1,newAvailableCardFreqMap) * prob
 
         return expectedValue
 
@@ -239,7 +300,7 @@ class BlackJackGame:
 
 
 numPlayers = 4
-numGames = 2
+numGames = 5
 game = BlackJackGame(numPlayers, numGames)
 game.playGame()
 
