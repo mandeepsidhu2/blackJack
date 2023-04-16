@@ -19,6 +19,7 @@ class BlackJackGame:
     def __init__(self, numPlayers, numGameRounds):
         self.numPlayers = numPlayers
         self.numDecks = math.ceil(numGameRounds * 5 * float(numPlayers + 1) / numGameRounds)
+        #print("numDecks",self.numDecks)
         self.shoe = []
         self.currShoeIdx = 0
         self.playIdx = 1
@@ -183,6 +184,7 @@ class BlackJackGame:
         state = BlackJackGame(self.numPlayers, self.numGameRounds)
         state.playerVsHands[0] = copy.copy(self.playerVsHands[0])
         state.playerVsHands[0].append(card)
+        #state.currShoeIdx = self.currShoeIdx
         return state
 
     def getMove(self, gameState):
@@ -193,41 +195,68 @@ class BlackJackGame:
         return action
 
     def expectimax(self, gameState):
-        hit = math.floor(self.expValue(gameState))
+        currAvailableCards = self.shoe[self.currShoeIdx:]
+        availableCardFreqMap = {}
+        for card in currAvailableCards:
+        	if card in availableCardFreqMap:
+        		availableCardFreqMap[card]=availableCardFreqMap[card]+1
+        	else:
+        		availableCardFreqMap[card]=1
+
+        hit = math.floor(self.expValue(gameState,availableCardFreqMap))
         stand = self.getOptimalSum(self.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
-        dealer = math.floor(self.dealerExpValue(gameState, 0))
+ 
+        #print(availableCardFreqMap)
+        #print(len(currAvailableCards))
+
+        dealer = math.floor(self.dealerExpValue(gameState, 0,availableCardFreqMap))
         print("Hit:", hit, "stand:", stand, "dealer:", dealer)
         value = self.getOptimalSum((hit, stand))
-        if value == hit:
+        if value == hit :
             print("HIT: Hit has better expected value than Stand")
             return "Hit"
-        elif stand < dealer and self.getSumOfCards(self.getDealerTopCard()):
+        elif stand < dealer:
             print("HIT: Stand is better than Hit, but Dealer's expected value is better than my Stand.")
             return "Hit"
         else:
             print("STAND: Stand is better than Hit and Dealer")
             return "Stand"
 
-    def expValue(self, gameState):
+    def expValue(self, gameState,availableCardFreqMap):
         expectedValue = 0
-        cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
-        for card in cards:
+        #cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+        totalSum=0
+        for cardKey in availableCardFreqMap:
+            totalSum+=availableCardFreqMap[cardKey]
+        for card in availableCardFreqMap:
             successorGameState = gameState.generateSuccessor(card)
-            probability = 1./13.
+            probability = 1.*availableCardFreqMap[card]/totalSum
             nextValue = self.evaluationFunction(successorGameState)
             # expectimax calculation
             expectedValue += probability * nextValue
         return expectedValue + min(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
-    def dealerExpValue(self, gameState, depth):
+
+    def dealerExpValue(self, gameState, depth,availableCardFreqMap):
         dealerCardSum = self.getSumOfCards(gameState.getDealerVisibleCards())
         dealerCardSum = self.getOptimalSum(dealerCardSum)
+        # if dealerCardSum > 21:
+        # 	return -1
         if dealerCardSum >= 17:
             return dealerCardSum
-        cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+        #cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
         expectedValue = 0
-        for card in cards:
-            successorGameState = gameState.generateDealerSuccessor(card)
-            expectedValue += self.dealerExpValue(successorGameState, depth+1) * 1./13.
+        totalSum=0
+        for cardKey in availableCardFreqMap:
+        	totalSum+=availableCardFreqMap[cardKey]
+        for cardKey in availableCardFreqMap:
+        	newAvailableCardFreqMap = copy.copy(availableCardFreqMap)
+        	newAvailableCardFreqMap[cardKey]=newAvailableCardFreqMap[cardKey]-1
+        	if newAvailableCardFreqMap[cardKey] == 0:
+        		newAvailableCardFreqMap.pop(cardKey)
+
+        	successorGameState = gameState.generateDealerSuccessor(cardKey)
+        	prob = 1.0*availableCardFreqMap[cardKey]/totalSum
+        	expectedValue += self.dealerExpValue(successorGameState, depth+1,newAvailableCardFreqMap) * prob
 
         return expectedValue
 
