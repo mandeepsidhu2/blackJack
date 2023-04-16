@@ -18,7 +18,7 @@ class BlackJackGame:
 
     def __init__(self, numPlayers, numGameRounds):
         self.numPlayers = numPlayers
-        self.numDecks = math.ceil(numGameRounds * 5 * float(numPlayers + 1) / numGameRounds)
+        self.numDecks = math.ceil(numGameRounds * 5 * float(numPlayers + 1) / 52)
         #print("numDecks",self.numDecks)
         self.shoe = []
         self.currShoeIdx = 0
@@ -27,6 +27,7 @@ class BlackJackGame:
         self.currentGameRound = 1
         self.numGameRounds = numGameRounds
         self.gamePlayingHistory = {}
+        self.winsVsLosses = [0,0]
         # 0 means player 1, when playIdx is numPlayers it means the dealerr
         # because he plays the last
         self.playerVsHands = None
@@ -127,17 +128,23 @@ class BlackJackGame:
         for i in range(1, self.numPlayers + 1):
             playerCardSum = self.getSumOfCards(self.playerVsHands[i])
             playerCardSum = self.getOptimalSum(playerCardSum)
-            if playerCardSum > dealerCardSum:
+            if playerCardSum > 21 and dealerCardSum>21:
+                ans.append('Tied')
+            elif playerCardSum > dealerCardSum:
                 if playerCardSum <= 21:
                     ans.append('Win')
+                    self.winsVsLosses[0]=self.winsVsLosses[0]+1
                 else:
                     ans.append('Lost')
+                    self.winsVsLosses[1]=self.winsVsLosses[1]+1
 
             elif playerCardSum < dealerCardSum:
                 if dealerCardSum <= 21:
                     ans.append('Lost')
+                    self.winsVsLosses[1]=self.winsVsLosses[1]+1
                 else:
                     ans.append('Win')
+                    self.winsVsLosses[0]=self.winsVsLosses[0]+1
             else:
                 ans.append('Tied')
             print("Player ", i, ans[i - 1], playerCardSum, "vs", dealerCardSum)
@@ -162,6 +169,7 @@ class BlackJackGame:
             self.playIdx = 1
             print("************************ This round is over ************************")
             if self.currentGameRound > self.numGameRounds:
+                print("Win percentage is",100.*self.winsVsLosses[0]/(self.winsVsLosses[0]+self.winsVsLosses[1]))
                 print("************************     GAME OVER      ************************")
 
         # if the player is moving 'Stand', do nothing and if he hits just add the card,
@@ -215,7 +223,7 @@ class BlackJackGame:
         if value == hit :
             print("HIT: Hit has better expected value than Stand")
             return "Hit"
-        elif stand < dealer:
+        elif stand < dealer and stand < 17:
             print("HIT: Stand is better than Hit, but Dealer's expected value is better than my Stand.")
             return "Hit"
         else:
@@ -239,8 +247,8 @@ class BlackJackGame:
     def dealerExpValue(self, gameState, depth,availableCardFreqMap):
         dealerCardSum = self.getSumOfCards(gameState.getDealerVisibleCards())
         dealerCardSum = self.getOptimalSum(dealerCardSum)
-        # if dealerCardSum > 21:
-        # 	return -1
+        if dealerCardSum > 21:
+        	return -1
         if dealerCardSum >= 17:
             return dealerCardSum
         #cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
@@ -248,6 +256,7 @@ class BlackJackGame:
         totalSum=0
         for cardKey in availableCardFreqMap:
         	totalSum+=availableCardFreqMap[cardKey]
+
         for cardKey in availableCardFreqMap:
         	newAvailableCardFreqMap = copy.copy(availableCardFreqMap)
         	newAvailableCardFreqMap[cardKey]=newAvailableCardFreqMap[cardKey]-1
