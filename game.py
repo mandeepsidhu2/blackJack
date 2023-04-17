@@ -44,7 +44,6 @@ class BlackJackGame:
 
     def playGame(self):
         print("Initial game state:")
-
         while self.currentGameRound <= self.numGameRounds:
             print(self.playerVsHands, '\n')
             move = self.getMove(game)
@@ -54,7 +53,10 @@ class BlackJackGame:
         card = self.shoe[self.currShoeIdx]
         self.currShoeIdx += 1
         return card
-    #
+
+    # In the start round method assign each player 2 cards so that the game can start.
+    # If the index is 0, the dealer is being assigned the card, then assign the current
+    # dealer hidden card idx.
     def startRound(self):
         self.playerVsHands = {}
         for x in range(self.numPlayers + 1):
@@ -67,6 +69,8 @@ class BlackJackGame:
             cards.append(self.getCard())
             self.playerVsHands[x].extend(cards)
 
+    # If one of the cards is and ace, then we have a soft sum because it can be considered
+    # either as a value 1 or value 11 card
     def getSumOfCards(self, cards):
         sum1 = 0
         sum2 = 0
@@ -82,33 +86,21 @@ class BlackJackGame:
                 sum2 += int(card)
         return sum1, sum2
 
-    def getNumberOfCardsLeftInShoe(self):
-        return len(self.shoe) - self.currShoeIdx + 1
-
+    # Only the top card of the dealer's hand is visible so this method returns the visible cards
     def getDealerVisibleCards(self):
         dealerHand = self.playerVsHands[0]
         return dealerHand[1:]
 
+    # Get the top dealer card
     def getDealerTopCard(self):
         dealerHand = self.playerVsHands[0]
         return dealerHand[-1]
 
+    # get turn of the current player, if it is 0, then it is dealer otherwise the player
     def getCurrentTurn(self):
         return self.playIdx
 
-    def getLegalMoves(self):
-        nextPlayIdx = self.playIdx
-        if nextPlayIdx == (self.numPlayers + 1):  # curringently the leader is play
-            nextPlayIdx = 0
-        cards = self.playerVsHands[nextPlayIdx]
-        cardSumTuple = self.getSumOfCards(cards)
-        if cardSumTuple[0] < 17 and cardSumTuple[1] < 17:
-            return ['Hit']
-        elif cardSumTuple[0] >= 17 and cardSumTuple[1] >= 17:
-            return ['Stand']
-        else:  # currently  one of the players is playing
-            return ['Hit', 'Stand']
-
+    # Out of 2 possible options, this method returns the largest possible sum under 21
     def getOptimalSum(self, cardSumTuple):
         cardOptimalSum = 0
         if cardSumTuple[0] > 21 and cardSumTuple[1] > 21:
@@ -125,8 +117,8 @@ class BlackJackGame:
                 cardOptimalSum = cardSumTuple[0]
         return cardOptimalSum
 
+    # After the round ends, find the whether a player has won, lost or tied a game
     def findGameWinners(self):
-
         dealerCardSum = self.getSumOfCards(self.playerVsHands[0])
         dealerCardSum = self.getOptimalSum(dealerCardSum)
         ans = []
@@ -159,6 +151,10 @@ class BlackJackGame:
     def getGamePlayingHistory(self):
         return self.gamePlayingHistory
 
+    # After a move has been decided on and make the move, if the agent is playing then start
+    # the next round because the agent plays the last.
+    # If this was the last round then print stats related to game playing history and the winning
+    # percentage
     def makeMove(self, move):
         if self.playIdx == 0:
             agentCards = self.playerVsHands[0]
@@ -168,7 +164,6 @@ class BlackJackGame:
                 self.playerVsHands[0].append(card)
                 agentCardsSum = self.getSumOfCards(self.playerVsHands[0])
             self.gamePlayingHistory[self.currentGameRound] = self.findGameWinners()
-
             self.startRound()
             self.currentGameRound += 1
             self.playIdx = 1
@@ -191,29 +186,35 @@ class BlackJackGame:
             if self.playIdx == (self.numPlayers + 1):
                 self.playIdx = 0
 
+    # generates a new game state
     def generateSuccessor(self, card):
         state = BlackJackGame(self.numPlayers, self.numGameRounds)
         state.playerVsHands[state.playIdx].append(card)
         return state
 
+    # generates the successor state for the dealer
     def generateDealerSuccessor(self, card):
         state = BlackJackGame(self.numPlayers, self.numGameRounds)
         state.playerVsHands[0] = copy.copy(self.playerVsHands[0])
         state.playerVsHands[0].append(card)
-        #state.currShoeIdx = self.currShoeIdx
         return state
 
-
+    # get the current move of an agent which is either 'Hit' or 'Stand' based on the 
+    # game playing strategy which could be best_play, basic_strategy, selfish and randoms
     def getMove(self, gameState):
         print("The current player is ", self.playIdx)
         print("My current hand is", gameState.playerVsHands[gameState.playIdx])
         action = None
-        if self.playStyle=="bestplay" or self.playStyle=="basic_strategy":
+        if self.playStyle=="best_play" or self.playStyle=="basic_strategy":
             action = self.expectimax(gameState,self.playStyle)
         elif self.playStyle=="selfish":
 	        action = self.getSelfishPlayAction(gameState)
-        else:
+        elif self.playStyle=="random":
             action = random.choice(["Hit","Stand"])
+        else:
+            raise Exception("Invalid Flag passed!\n Execute using the following commands\n python game.py random\npython game.py best_play\npython game.py basic_strategy\npython game.py selfish\n")
+
+
 
         possibleSums =  self.getSumOfCards(gameState.playerVsHands[gameState.playIdx])
         dealerUpCard = gameState.playerVsHands[0][1]
@@ -361,10 +362,3 @@ numPlayers = 4
 numGames = 5
 game = BlackJackGame(numPlayers, numGames)
 game.playGame()
-
-
-# random move
-# just look at own card
-# look at own and dealer cards
-# card counting
-
