@@ -213,9 +213,6 @@ class BlackJackGame:
             action = random.choice(["Hit","Stand"])
         else:
             raise Exception("Invalid Flag passed!\n Execute using the following commands\n python game.py random\npython game.py best_play\npython game.py basic_strategy\npython game.py selfish\n")
-
-
-
         possibleSums =  self.getSumOfCards(gameState.playerVsHands[gameState.playIdx])
         dealerUpCard = gameState.playerVsHands[0][1]
         if 'A' in gameState.playerVsHands[gameState.playIdx]:
@@ -232,6 +229,7 @@ class BlackJackGame:
         print("Chose move", action,"\n")
         return action
 
+    # Only look at your own cards to pick the next move
     def getSelfishPlayAction(self,gameState):
 	    currAvailableCards = self.shoe[self.currShoeIdx:]
 	    availableCardFreqMap = {}
@@ -255,6 +253,11 @@ class BlackJackGame:
 	        print("STAND: Stand is better than Hit and Dealer")
 	        return "Stand"
 
+    # Look at the next possible moves of the dealer to decide the best possible move
+    # This method implements the expectimax algorithm to calculate the expected sum of
+    # the dealer's cards. If the flag basic_strategy is passed then card counting is not
+    # used and the expectimax algorithm assumes equal probability of all cards which is
+    # less accurate
     def expectimax(self, gameState, playStyle):
         currAvailableCards = self.shoe[self.currShoeIdx:]
         availableCardFreqMap = {}
@@ -292,6 +295,7 @@ class BlackJackGame:
             print("STAND: Stand is better than Hit and Dealer")
             return "Stand"
 
+    # calculate the expected sum value of the player's cards using card counting
     def expValue(self, gameState,availableCardFreqMap):
         expectedValue = 0
         totalSum=0
@@ -304,7 +308,7 @@ class BlackJackGame:
             # expectimax calculation
             expectedValue += probability * nextValue
         return expectedValue + min(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
-
+    # calculate the expected sum value of the dealer's cards using card counting
     def dealerExpValue(self, gameState, depth,availableCardFreqMap):
         dealerCardSum = self.getSumOfCards(gameState.getDealerVisibleCards())
         dealerCardSum = self.getOptimalSum(dealerCardSum)
@@ -329,6 +333,7 @@ class BlackJackGame:
 
         return expectedValue
 
+    # calculate the expected sum value of the player's cards assuming equal probability of all cards
     def simpleExpValue(self, gameState):
         expectedValue = 0
         cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
@@ -338,6 +343,8 @@ class BlackJackGame:
             nextValue = self.evaluationFunction(successorGameState)
             expectedValue += probability * nextValue
         return expectedValue + min(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
+
+    # calculate the expected sum value of the dealer's cards assuming equal probability of all cards
     def simpleDealerExpValue(self, gameState, depth):
         dealerCardSum = self.getSumOfCards(gameState.getDealerVisibleCards())
         dealerCardSum = self.getOptimalSum(dealerCardSum)
@@ -351,6 +358,8 @@ class BlackJackGame:
 
         return expectedValue
 
+    # if the sum is greater than 21, then the move is a bust so return 0 and any value under or
+    # equal to 21 has the same utility so return the num itself
     def evaluationFunction(self, gameState):
         sum = max(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
         if sum > 21:
