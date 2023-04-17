@@ -1,6 +1,7 @@
 import random
 import math
 import copy
+import sys
 from enum import Enum
 
 cardArr = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K',
@@ -8,34 +9,38 @@ cardArr = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K',
            'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K',
            'A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 
-
-# moves = Enum('Begin','Hit','Stand')
-# Initialise the game object with the number of games you want to play
-# class Hand(object):
-
-
 class BlackJackGame:
 
     def __init__(self, numPlayers, numGameRounds):
-        self.numPlayers = numPlayers
-        self.numDecks = math.ceil(numGameRounds * 5 * float(numPlayers + 1) / 52)
-        #print("numDecks",self.numDecks)
-        self.shoe = []
-        self.currShoeIdx = 0
-        self.playIdx = 1
+        self.numPlayers = numPlayers # number of players who will play against the dealer
+        # number of decks to be used in the game
+        self.numDecks = math.ceil(numGameRounds * 5 * float(numPlayers + 1) / 52) 
+        # 0 represents the dealer, and rest of the indices upto numPlayers represent the player idx
+        self.playIdx = 1 
+        # curr dealer hidden card, since only top card should be visible
         self.currDealerHiddenCard = None
+        # 1=<currentGameRound<=numGameRounds
         self.currentGameRound = 1
         self.numGameRounds = numGameRounds
+        # stores the wins and losses of various players
         self.gamePlayingHistory = {}
+        # used to record the average win percentage throughout the rounds
         self.winsVsLosses = [0,0]
+        # records the players card and dealer up card against the action chosen, i.e. Hit or Stand
         self.handVsMove = {}
-        # 0 means player 1, when playIdx is numPlayers it means the dealerr
-        # because he plays the last
+        # stores the player idx against their current hand, this is flushed after every game round
         self.playerVsHands = None
+        self.shoe = [] # shoe holds the shuffle cards that will be dealt
+        self.currShoeIdx = 0 # current index of the cad to be dealt
         for x in range(self.numDecks):
             self.shoe.extend(cardArr)
+        # shuffle the cards
         random.shuffle(self.shoe)
+        #print(sys.argv[1])
+        self.playStyle = sys.argv[1]
+        # Round 1 starts
         self.startRound()
+
 
     def playGame(self):
         print("Initial game state:")
@@ -49,7 +54,7 @@ class BlackJackGame:
         card = self.shoe[self.currShoeIdx]
         self.currShoeIdx += 1
         return card
-
+    #
     def startRound(self):
         self.playerVsHands = {}
         for x in range(self.numPlayers + 1):
@@ -92,7 +97,6 @@ class BlackJackGame:
         return self.playIdx
 
     def getLegalMoves(self):
-        # 0 idx is the dealer, 1 .. numPlayers are the players
         nextPlayIdx = self.playIdx
         if nextPlayIdx == (self.numPlayers + 1):  # curringently the leader is play
             nextPlayIdx = 0
@@ -199,29 +203,58 @@ class BlackJackGame:
         #state.currShoeIdx = self.currShoeIdx
         return state
 
+
     def getMove(self, gameState):
         print("The current player is ", self.playIdx)
         print("My current hand is", gameState.playerVsHands[gameState.playIdx])
-        action = self.expectimax(gameState)
-        # TODO
+        action = None
+        if self.playStyle=="bestplay" or self.playStyle=="basic_strategy":
+            action = self.expectimax(gameState,self.playStyle)
+        elif self.playStyle=="selfish":
+	        action = self.getSelfishPlayAction(gameState)
+        else:
+            action = random.choice(["Hit","Stand"])
+
         possibleSums =  self.getSumOfCards(gameState.playerVsHands[gameState.playIdx])
         dealerUpCard = gameState.playerVsHands[0][1]
         if 'A' in gameState.playerVsHands[gameState.playIdx]:
-        	key="A "+str(possibleSums[0]-1) +"  VS  "+str(dealerUpCard)
+            key="A "+str(possibleSums[0]-1) +"  VS  "+str(dealerUpCard)
         else:
-        	key=str(possibleSums[0])+"  VS  "+str(dealerUpCard)
+            key=str(possibleSums[0])+"  VS  "+str(dealerUpCard)
 
         if key not in self.handVsMove:
-        	self.handVsMove[key]=[0,0]
-        	if action=='Hit':
-        		self.handVsMove[key][0]=self.handVsMove[key][0]+1
-        	else:
-        		self.handVsMove[key][1]=self.handVsMove[key][1]+1
-
+            self.handVsMove[key]=[0,0]
+            if action=='Hit':
+                self.handVsMove[key][0]=self.handVsMove[key][0]+1
+            else:
+                self.handVsMove[key][1]=self.handVsMove[key][1]+1
         print("Chose move", action,"\n")
         return action
 
-    def expectimax(self, gameState):
+    def getSelfishPlayAction(self,gameState):
+	    currAvailableCards = self.shoe[self.currShoeIdx:]
+	    availableCardFreqMap = {}
+	    for card in currAvailableCards:
+	    	if card in availableCardFreqMap:
+	    		availableCardFreqMap[card]=availableCardFreqMap[card]+1
+	    	else:
+	    		availableCardFreqMap[card]=1
+	    hit = math.floor(self.simpleExpValue(gameState))
+	    sumOfPlayerCards = self.getSumOfCards(gameState.playerVsHands[gameState.playIdx])
+	    stand = self.getOptimalSum(sumOfPlayerCards)
+	    print("Hit:", hit, "stand:", stand)
+	    value = self.getOptimalSum((hit, stand))
+	    if value == hit :
+	        print("HIT: Hit has better expected value than Stand")
+	        return "Hit"
+	    elif 'A' in gameState.playerVsHands[gameState.playIdx] and (sumOfPlayerCards[0]<=17 and sumOfPlayerCards[1]<=17):
+	        print("HIT: Hit has better expected value in this soft combination")
+	        return "Hit"
+	    else:
+	        print("STAND: Stand is better than Hit and Dealer")
+	        return "Stand"
+
+    def expectimax(self, gameState, playStyle):
         currAvailableCards = self.shoe[self.currShoeIdx:]
         availableCardFreqMap = {}
         for card in currAvailableCards:
@@ -230,14 +263,19 @@ class BlackJackGame:
         	else:
         		availableCardFreqMap[card]=1
 
-        hit = math.floor(self.expValue(gameState,availableCardFreqMap))
+       	if playStyle=="bestplay":
+        	hit = math.floor(self.expValue(gameState,availableCardFreqMap))
+        else:
+        	hit = math.floor(self.simpleExpValue(gameState))
+
         sumOfPlayerCards = self.getSumOfCards(gameState.playerVsHands[gameState.playIdx])
         stand = self.getOptimalSum(sumOfPlayerCards)
- 
-        #print(availableCardFreqMap)
-        #print(len(currAvailableCards))
 
-        dealer = math.floor(self.dealerExpValue(gameState, 0,availableCardFreqMap))
+        if playStyle=="bestplay":
+        	dealer = math.floor(self.dealerExpValue(gameState, 0,availableCardFreqMap))
+        else:
+        	dealer = math.floor(self.simpleDealerExpValue(gameState, 0))
+
         print("Hit:", hit, "stand:", stand, "dealer:", dealer)
         value = self.getOptimalSum((hit, stand))
         if value == hit :
@@ -255,7 +293,6 @@ class BlackJackGame:
 
     def expValue(self, gameState,availableCardFreqMap):
         expectedValue = 0
-        #cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
         totalSum=0
         for cardKey in availableCardFreqMap:
             totalSum+=availableCardFreqMap[cardKey]
@@ -274,7 +311,6 @@ class BlackJackGame:
         	return -1
         if dealerCardSum >= 17:
             return dealerCardSum
-        #cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
         expectedValue = 0
         totalSum=0
         for cardKey in availableCardFreqMap:
@@ -292,6 +328,28 @@ class BlackJackGame:
 
         return expectedValue
 
+    def simpleExpValue(self, gameState):
+        expectedValue = 0
+        cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+        for card in cards:
+            successorGameState = gameState.generateSuccessor(card)
+            probability = 1./13.
+            nextValue = self.evaluationFunction(successorGameState)
+            expectedValue += probability * nextValue
+        return expectedValue + min(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
+    def simpleDealerExpValue(self, gameState, depth):
+        dealerCardSum = self.getSumOfCards(gameState.getDealerVisibleCards())
+        dealerCardSum = self.getOptimalSum(dealerCardSum)
+        if dealerCardSum >= 17:
+            return dealerCardSum
+        cards = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
+        expectedValue = 0
+        for card in cards:
+            successorGameState = gameState.generateDealerSuccessor(card)
+            expectedValue += self.simpleDealerExpValue(successorGameState, depth+1) * 1./13.
+
+        return expectedValue
+
     def evaluationFunction(self, gameState):
         sum = max(gameState.getSumOfCards(gameState.playerVsHands[gameState.playIdx]))
         if sum > 21:
@@ -303,4 +361,10 @@ numPlayers = 4
 numGames = 5
 game = BlackJackGame(numPlayers, numGames)
 game.playGame()
+
+
+# random move
+# just look at own card
+# look at own and dealer cards
+# card counting
 
